@@ -1,308 +1,224 @@
-local MitnicK = {}
-MitnicK.__index = MitnicK
-
-function MitnicK.new(title, deleteDupes)
-    local self = setmetatable({}, MitnicK)
-
-    local playerGui = game.Players.LocalPlayer.PlayerGui
-
-    self.screenGui = Instance.new("ScreenGui")
-    self.screenGui.Parent = playerGui
-    self.screenGui.ResetOnSpawn = false
-
-    self.mainFrame = Instance.new("Frame")
-    self.mainFrame.Size = UDim2.new(0, 240, 0, 300)
-    self.mainFrame.Position = UDim2.new(0.5, -120, 0.5, -150)
-    self.mainFrame.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
-    self.mainFrame.Parent = self.screenGui
-    self.mainFrame.ClipsDescendants = true
-
-    self.title = Instance.new("TextLabel")
-    self.title.Text = title
-    self.title.FontSize = Enum.FontSize.Size24
-    self.title.Font = Enum.Font.SourceSans
-    self.title.TextColor3 = Color3.new(0, 0, 0)
-    self.title.TextStrokeTransparency = 0
-    self.title.TextStrokeColor3 = Color3.new(0, 0, 0)
-    self.title.Size = UDim2.new(0, 200, 0, 30)
-    self.title.Position = UDim2.new(0, 20, 0, 10)
-    self.title.Parent = self.mainFrame
-
-    self.buttonList = Instance.new("ScrollingFrame")
-    self.buttonList.Size = UDim2.new(0, 200, 0, 230)
-    self.buttonList.Position = UDim2.new(0, 20, 0, 40)
-    self.buttonList.BackgroundColor3 = Color3.new(1, 1, 1)
-    self.buttonList.Parent = self.mainFrame
-
-    self.buttonLayout = Instance.new("UIListLayout")
-    self.buttonLayout.SortOrder = Enum.SortOrder.Name
-    self.buttonLayout.Padding = UDim.new(0, 5)
-    self.buttonLayout.Parent = self.buttonList
-
-    self.tabs = {}
-    self.deleteDupes = deleteDupes or false
-
-    self:makeDraggable(self.mainFrame)
-    self:setupToggleButton()
-
-    return self
+local function randomName()
+    local data = ""
+    for i = 0, 20 do
+        data = data .. tostring(string.char(math.ceil(math.random() * 254)))
+    end
+    return data
 end
 
-function MitnicK:makeDraggable(frame)
-    local userInputService = game:GetService("UserInputService")
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
+local ui = Instance.new("ScreenGui")
+ui.Name = randomName()
+ui.Parent = game:GetService("CoreGui")
 
-    local function update(input)
-        local delta = input.Position - dragStart
-        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+local library = {}
+
+local TweenService = game:GetService("TweenService")
+local uis = game:GetService("UserInputService")
+local tabcount = 0
+local rainbow = 0
+_G.breatherate = 0.005
+local color
+local rainbows = {}
+local buttoncount = {}
+
+local function draggable(obj)
+    local globals = {}
+    globals.dragging = nil
+    globals.uiorigin = nil
+    globals.morigin = nil
+    obj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            globals.dragging = true
+            globals.uiorigin = obj.Position
+            globals.morigin = input.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    globals.dragging = false
+                end
+            end)
+        end
+    end)
+    uis.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and globals.dragging then
+            local change = input.Position - globals.morigin
+            obj.Position = UDim2.new(globals.uiorigin.X.Scale, globals.uiorigin.X.Offset + change.X, globals.uiorigin.Y.Scale, globals.uiorigin.Y.Offset + change.Y)
+        end
+    end)
+end
+
+function library:Create(obj, data)
+    obj = Instance.new(obj)
+    for i, v in pairs(data) do
+        if i ~= "Parent" then
+            obj[i] = v
+        end
     end
+    obj.Parent = data.Parent
+    return obj
+end
 
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-        end
-    end)
-
-    frame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    userInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            if dragging then
-                update(input)
+function library:CreateTab(name, rainbow, color)
+    tabcount = tabcount + 1
+    buttoncount[tabcount] = 0
+    if rainbow then
+        table.insert(rainbows, #rainbows + 1, tabcount)
+        color = Color3.new(1, 0, 0)
+    elseif color == nil then
+        color = Color3.new(0.1, 0.6, 0.1)
+    end
+    local tab = self:Create("Frame", {
+        Name = tostring(tabcount),
+        Parent = ui,
+        Active = true,
+        BackgroundColor3 = Color3.new(0.1, 0.1, 0.1),
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, (tabcount - 1) * 220, 0.05, 0),
+        Size = UDim2.new(0, 200, 0, 400),
+        ClipDescendants = true
+    })
+    local top = self:Create("Frame", {
+        Name = "Top",
+        Parent = tab,
+        BackgroundColor3 = Color3.new(0.2, 0.2, 0.2),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 40),
+    })
+    local title = self:Create("TextLabel", {
+        Parent = top,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.05, 0, 0, 0),
+        Size = UDim2.new(0.7, 0, 1, 0),
+        Font = Enum.Font.SourceSansBold,
+        Text = name,
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 20,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local minimize = self:Create("TextButton", {
+        Parent = top,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.85, 0, 0.1, 0),
+        Size = UDim2.new(0, 40, 0, 30),
+        Font = Enum.Font.SourceSansBold,
+        Text = "-",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 24
+    })
+    local rainbowBar = self:Create("Frame", {
+        Parent = top,
+        BackgroundColor3 = color,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 1, 0),
+        Size = UDim2.new(1, 0, 0.1, 0)
+    })
+    local holder = self:Create("Frame", {
+        Name = "ButtonHolder",
+        Parent = tab,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 40),
+        Size = UDim2.new(1, 0, 1, -40)
+    })
+    local holder2 = self:Create("Frame", {
+        Name = "ButtonHolderContent",
+        Parent = holder,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 0),
+        Size = UDim2.new(1, 0, 1, 0),
+        ClipDescendants = true
+    })
+    local holder3 = self:Create("Frame", {
+        Parent = holder2,
+        BackgroundColor3 = Color3.new(0.2, 0.2, 0.2),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 1, 0),
+        ClipsDescendants = true
+    })
+    local debounce = false
+    minimize.MouseButton1Click:Connect(function()
+        if holder3.Visible then
+            if not debounce then
+                debounce = true
+                local tween = TweenService:Create(holder3, TweenInfo.new(0.5), {Position = UDim2.new(0, 0, 1, holder3.Size.Y.Offset)})
+                tween:Play()
+                tween.Completed:Connect(function()
+                    holder3.Visible = false
+                    debounce = false
+                end)
+            end
+        else
+            if not debounce then
+                debounce = true
+                holder3.Visible = true
+                local tween = TweenService:Create(holder3, TweenInfo.new(0.5), {Position = UDim2.new(0, 0, 0, 0)})
+                tween:Play()
+                tween.Completed:Connect(function()
+                    debounce = false
+                end)
             end
         end
     end)
+    draggable(tab)
+    return tab
 end
 
-function MitnicK:setupToggleButton()
-    self.toggleButton = Instance.new("TextButton")
-    self.toggleButton.Text = "Hide"
-    self.toggleButton.FontSize = Enum.FontSize.Size14
-    self.toggleButton.Font = Enum.Font.SourceSans
-    self.toggleButton.TextColor3 = Color3.new(0, 0, 0)
-    self.toggleButton.TextStrokeTransparency = 0
-    self.toggleButton.TextStrokeColor3 = Color3.new(0, 0, 0)
-    self.toggleButton.Size = UDim2.new(0, 40, 0, 20)
-    self.toggleButton.Position = UDim2.new(0, 10, 0, 50)
-    self.toggleButton.Parent = self.screenGui
+function library:MakeButton(tab, text, callback)
+    buttoncount[tonumber(tab.Name)] = buttoncount[tonumber(tab.Name)] + 1
+    local button = self:Create("TextButton", {
+        Parent = tab.ButtonHolder.ButtonHolderContent,
+        BackgroundColor3 = Color3.new(0.3, 0.3, 0.3),
+        BorderSizePixel = 0,
+        Position = UDim2.new(0.05, 0, 0, (buttoncount[tonumber(tab.Name)] - 1) * 36 + 5),
+        Size = UDim2.new(0, 190, 0, 30),
+        Font = Enum.Font.SourceSansBold,
+        Text = text,
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 18
+    })
+    button.MouseButton1Click:Connect(function()
+        callback(button)
+    end)
+    return button
+end
 
-    local function toggleVisibility()
-        if self.mainFrame.Visible then
-            self.mainFrame.Visible = false
-            self.toggleButton.Text = "Show"
+function library:MakeToggle(tab, text, default, callback)
+    buttoncount[tonumber(tab.Name)] = buttoncount[tonumber(tab.Name)] + 1
+    local toggleState = default and {"ON", Color3.new(0, 1, 0)} or {"OFF", Color3.new(1, 0, 0)}
+    local toggle = self:Create("TextButton", {
+        Parent = tab.ButtonHolder.ButtonHolderContent,
+        BackgroundColor3 = Color3.new(0.3, 0.3, 0.3),
+        BorderSizePixel = 0,
+        Position = UDim2.new(0.05, 0, 0, (buttoncount[tonumber(tab.Name)] - 1) * 36 + 5),
+        Size = UDim2.new(0, 100, 0, 30),
+        Font = Enum.Font.SourceSansBold,
+        Text = toggleState[1],
+        TextColor3 = toggleState[2],
+        TextSize = 18
+    })
+    local description = self:Create("TextLabel", {
+        Parent = toggle,
+        BackgroundColor3 = Color3.new(0.3, 0.3, 0.3),
+        BorderSizePixel = 0,
+        Position = UDim2.new(-0.1, 0, 0, 0),
+        Size = UDim2.new(1, -100, 1, 0),
+        Font = Enum.Font.SourceSansBold,
+        Text = text,
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    toggle.MouseButton1Click:Connect(function()
+        if toggle.Text == "ON" then
+            toggle.Text = "OFF"
+            toggle.TextColor3 = Color3.new(1, 0, 0)
+            callback(false)
         else
-            self.mainFrame.Visible = true
-            self.toggleButton.Text = "Hide"
-        end
-    end
-
-    self.toggleButton.MouseButton1Click:Connect(toggleVisibility)
-end
-
-function MitnicK:newTab(tabName)
-    local tabFrame = Instance.new("Frame")
-    tabFrame.Size = UDim2.new(1, 0, 1, 0)
-    tabFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-    tabFrame.Visible = false
-    tabFrame.Parent = self.mainFrame
-
-    local tabTitle = Instance.new("TextLabel")
-    tabTitle.Text = tabName
-    tabTitle.FontSize = Enum.FontSize.Size18
-    tabTitle.Font = Enum.Font.SourceSans
-    tabTitle.TextColor3 = Color3.new(0, 0, 0)
-    tabTitle.Size = UDim2.new(1, 0, 0, 30)
-    tabTitle.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
-    tabTitle.Parent = tabFrame
-
-    local tabContent = Instance.new("Frame")
-    tabContent.Size = UDim2.new(1, 0, 1, -30)
-    tabContent.Position = UDim2.new(0, 0, 0, 30)
-    tabContent.BackgroundColor3 = Color3.new(1, 1, 1)
-    tabContent.Parent = tabFrame
-
-    local function showTab()
-        for _, tab in pairs(self.tabs) do
-            tab.frame.Visible = false
-        end
-        tabFrame.Visible = true
-    end
-
-    tabTitle.MouseButton1Click:Connect(showTab)
-
-    self.tabs[tabName] = { frame = tabFrame, content = tabContent }
-end
-
-function MitnicK:addButton(tabName, title, description, callback)
-    local tab = self.tabs[tabName]
-    if not tab then return end
-
-    local button = Instance.new("TextButton")
-    button.Text = title
-    button.Size = UDim2.new(1, -20, 0, 30)
-    button.Position = UDim2.new(0, 10, 0, #tab.content:GetChildren() * 35)
-    button.Parent = tab.content
-
-    button.MouseButton1Click:Connect(callback)
-end
-
-function MitnicK:addInput(tabName, title, defaultValue, callback)
-    local tab = self.tabs[tabName]
-    if not tab then return end
-
-    local inputBox = Instance.new("TextBox")
-    inputBox.PlaceholderText = title
-    inputBox.Text = defaultValue
-    inputBox.Size = UDim2.new(1, -20, 0, 30)
-    inputBox.Position = UDim2.new(0, 10, 0, #tab.content:GetChildren() * 35)
-    inputBox.Parent = tab.content
-
-    inputBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            callback(inputBox.Text)
+            toggle.Text = "ON"
+            toggle.TextColor3 = Color3.new(0, 1, 0)
+            callback(true)
         end
     end)
+    return toggle
 end
 
-function MitnicK:addSlider(tabName, title, description, isMax, minValue, maxValue, defaultValue, callback)
-    local tab = self.tabs[tabName]
-    if not tab then return end
-
-    local sliderFrame = Instance.new("Frame")
-    sliderFrame.Size = UDim2.new(1, -20, 0, 30)
-    sliderFrame.Position = UDim2.new(0, 10, 0, #tab.content:GetChildren() * 35)
-    sliderFrame.Parent = tab.content
-
-    local sliderLabel = Instance.new("TextLabel")
-    sliderLabel.Text = title .. ": " .. defaultValue
-    sliderLabel.Size = UDim2.new(1, 0, 0, 15)
-    sliderLabel.Parent = sliderFrame
-
-    local sliderBar = Instance.new("Frame")
-    sliderBar.Size = UDim2.new(1, 0, 0, 5)
-    sliderBar.Position = UDim2.new(0, 0, 0, 20)
-    sliderBar.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
-    sliderBar.Parent = sliderFrame
-
-    local sliderHandle = Instance.new("Frame")
-    sliderHandle.Size = UDim2.new(0, 10, 1, 0)
-    sliderHandle.Position = UDim2.new((defaultValue - minValue) / (maxValue - minValue), 0, 0, 0)
-    sliderHandle.BackgroundColor3 = Color3.new(0, 0, 0)
-    sliderHandle.Parent = sliderBar
-
-    local function updateSlider(value)
-        value = math.clamp(value, minValue, maxValue)
-        sliderHandle.Position = UDim2.new((value - minValue) / (maxValue - minValue), 0, 0, 0)
-        sliderLabel.Text = title .. ": " .. value
-        callback(value)
-    end
-
-    sliderBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Mouse
-    sliderBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local mousePosition = input.Position
-            local barPosition = sliderBar.AbsolutePosition
-            local barSize = sliderBar.AbsoluteSize
-            local percentage = math.clamp((mousePosition.X - barPosition.X) / barSize.X, 0, 1)
-            updateSlider(minValue + percentage * (maxValue - minValue))
-        end
-    end)
-
-    sliderBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePosition = input.Position
-            local barPosition = sliderBar.AbsolutePosition
-            local barSize = sliderBar.AbsoluteSize
-            local percentage = math.clamp((mousePosition.X - barPosition.X) / barSize.X, 0, 1)
-            updateSlider(minValue + percentage * (maxValue - minValue))
-        end
-    end)
-end
-
-function MitnicK:addDropdown(tabName, title, options, callback)
-    local tab = self.tabs[tabName]
-    if not tab then return end
-
-    local dropdownFrame = Instance.new("Frame")
-    dropdownFrame.Size = UDim2.new(1, -20, 0, 30)
-    dropdownFrame.Position = UDim2.new(0, 10, 0, #tab.content:GetChildren() * 35)
-    dropdownFrame.Parent = tab.content
-
-    local dropdownLabel = Instance.new("TextLabel")
-    dropdownLabel.Text = title
-    dropdownLabel.Size = UDim2.new(1, -20, 0, 15)
-    dropdownLabel.Parent = dropdownFrame
-
-    local dropdownButton = Instance.new("TextButton")
-    dropdownButton.Text = "Select an option"
-    dropdownButton.Size = UDim2.new(1, 0, 0, 30)
-    dropdownButton.Position = UDim2.new(0, 0, 0, 15)
-    dropdownButton.Parent = dropdownFrame
-
-    local dropdownMenu = Instance.new("Frame")
-    dropdownMenu.Size = UDim2.new(1, 0, 0, #options * 30)
-    dropdownMenu.Position = UDim2.new(0, 0, 0, 45)
-    dropdownMenu.BackgroundColor3 = Color3.new(1, 1, 1)
-    dropdownMenu.Visible = false
-    dropdownMenu.Parent = dropdownFrame
-
-    local function toggleMenu()
-        dropdownMenu.Visible = not dropdownMenu.Visible
-    end
-
-    dropdownButton.MouseButton1Click:Connect(toggleMenu)
-
-    for _, option in pairs(options) do
-        local optionButton = Instance.new("TextButton")
-        optionButton.Text = option
-        optionButton.Size = UDim2.new(1, 0, 0, 30)
-        optionButton.Parent = dropdownMenu
-
-        optionButton.MouseButton1Click:Connect(function()
-            dropdownButton.Text = option
-            dropdownMenu.Visible = false
-            callback(option)
-        end)
-    end
-end
-
-function MitnicK:addToggle(tabName, title, description, defaultValue, callback)
-    local tab = self.tabs[tabName]
-    if not tab then return end
-
-    local toggleFrame = Instance.new("Frame")
-    toggleFrame.Size = UDim2.new(1, -20, 0, 30)
-    toggleFrame.Position = UDim2.new(0, 10, 0, #tab.content:GetChildren() * 35)
-    toggleFrame.Parent = tab.content
-
-    local toggleLabel = Instance.new("TextLabel")
-    toggleLabel.Text = title
-    toggleLabel.Size = UDim2.new(1, -60, 0, 15)
-    toggleLabel.Parent = toggleFrame
-
-    local toggleSwitch = Instance.new("TextButton")
-    toggleSwitch.Text = defaultValue and "On" or "Off"
-    toggleSwitch.Size = UDim2.new(0, 40, 0, 15)
-    toggleSwitch.Position = UDim2.new(1, -50, 0, 0)
-    toggleSwitch.Parent = toggleFrame
-
-    local function updateToggle()
-        local isOn = toggleSwitch.Text == "On"
-        toggleSwitch.Text = isOn and "Off" or "On"
-        callback(not isOn)
-    end
-
-    toggleSwitch.MouseButton1Click:Connect(updateToggle)
-end
-
-return MitnicK
+return library 
+                    
